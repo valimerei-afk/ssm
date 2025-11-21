@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8">
+  <title>SmartDispatch AI – Автоматты өтініш басқару</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; margin:0; background: radial-gradient(circle, #02040a, #030b1a); color:#fff; }
+    header { background: linear-gradient(90deg,#001f3f,#003366); padding:15px; display:flex; justify-content:space-between; align-items:center; font-size:22px; box-shadow:0 4px 10px rgba(0,170,255,0.3); }
+    .status-indicator { font-size:14px; padding:4px 10px; border-radius:8px; background:#003366; box-shadow:0 0 8px rgba(0,170,255,0.5);}
+    .container { display:flex; height:calc(100vh - 60px); }
+    .sidebar { width:300px; background:#050f2a; border-right:2px solid #0af; padding:15px; display:flex; flex-direction:column; }
+    .sidebar button { margin-bottom:12px; padding:14px; font-size:15px; font-weight:bold; color:#fff; border-radius:12px; border:none; cursor:pointer; background:linear-gradient(90deg,#003366,#0055aa); box-shadow:0 0 12px rgba(0,170,255,0.4); transition:all 0.3s;}
+    .sidebar button:hover { background:#00aaff; color:#000; box-shadow:0 0 25px rgba(0,170,255,0.7);}
+    .chat { flex:1; display:flex; flex-direction:column; background:#020b18; }
+    .chat-header { background:#001f3f; padding:12px; font-size:18px; border-bottom:1px solid #0af; display:flex; justify-content:space-between; }
+    .messages { flex:1; padding:18px; overflow-y:auto; scrollbar-width:thin;}
+    .msg { margin-bottom:12px; padding:12px 16px; border-radius:14px; max-width:70%; font-size:15px; transition:all 0.3s;}
+    .dispatcher { background:#003366; align-self:flex-end; box-shadow:0 0 8px rgba(0,170,255,0.5);}
+    .system { background:#0a1e3d; border-left:4px solid #00aaff; box-shadow:0 0 6px rgba(0,170,255,0.3);}
+    .danger { background:#3d0000; border-left:4px solid red; color:#ffb3b3; box-shadow:0 0 15px rgba(255,0,0,0.6); animation:pulse 1s infinite;}
+    .safe { background:#004d00; border-left:4px solid #00ff55; color:#b3ffb3; box-shadow:0 0 10px rgba(0,255,85,0.5);}
+    @keyframes pulse {0%{box-shadow:0 0 5px red;}50%{box-shadow:0 0 20px red;}100%{box-shadow:0 0 5px red;}}
+    .chat-input { display:flex; padding:12px; border-top:1px solid #0af; background:#020b18; }
+    .chat-input input { flex:1; padding:12px; border-radius:12px; border:none; outline:none; background:#061935; color:white; font-size:14px;}
+    .chat-input button { margin-left:12px; padding:12px 22px; border-radius:12px; border:none; background:linear-gradient(90deg,#003366,#00aaff); font-weight:bold; cursor:pointer; box-shadow:0 0 12px rgba(0,170,255,0.5); transition:all 0.3s;}
+    .chat-input button:hover { background:#00aaff; color:#000; box-shadow:0 0 25px rgba(0,170,255,0.7);}
+    .messages::-webkit-scrollbar { width:8px;}
+    .messages::-webkit-scrollbar-track { background:#020b18;}
+    .messages::-webkit-scrollbar-thumb { background:#0af; border-radius:4px;}
+  </style>
+</head>
+<body>
+
+<header>
+  ☢ SmartDispatch AI – Автоматты өтініш басқару
+  <div class="status-indicator" id="system-status">✅ Жүйе жұмыс істеп тұр</div>
+</header>
+
+<div class="container">
+  <div class="sidebar">
+    <button onclick="addSystem('Барлық реакторлар тексерілді')">⚙️ Реактор жағдайы</button>
+    <button onclick="checkRadiation()">☢ Радиациялық қауіп</button>
+    <button onclick="checkCooling()">❗ Салқындату апаты</button>
+    <button onclick="addSystem('Диспетчерлік есеп генерацияланды')">📊 Аналитика</button>
+    <button onclick="geminiSuggestion()">🤖 Gemini AI кеңес</button>
+  </div>
+
+  <div class="chat">
+    <div class="chat-header">Диспетчерлік чат</div>
+    <div class="messages" id="messages">
+      <div class="msg system">🛰 Жүйе іске қосылды</div>
+    </div>
+    <div class="chat-input">
+      <input type="text" id="text" placeholder="Өтінішті немесе команданы енгізіңіз...">
+      <button onclick="sendMessage()">Жіберу</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const msgBox = document.getElementById("messages");
+
+// Диспетчер хабарламасы
+function sendMessage() {
+  const input = document.getElementById("text");
+  const text = input.value.trim();
+  if (!text) return;
+  addMsg("👨‍✈️ Диспетчер: " + text, "dispatcher");
+
+  setTimeout(() => {
+    const priority = determinePriority(text);
+    addMsg("🤖 AI: Өтініш деңгейі - " + priority + ". Жұмысшыға бөлінді.", "system");
+  }, 500);
+
+  input.value = "";
+}
+
+// Gemini AI ұсынысы
+function geminiSuggestion() {
+  addMsg("💡 Gemini AI: Осы өтінішті шұғыл түрде тексеріңіз!", "system");
+}
+
+// Қауіп хабар
+function addDanger(text) {
+  const msg = document.createElement("div");
+  msg.className = "msg danger";
+  msg.textContent = "🚨 " + text;
+  msgBox.appendChild(msg);
+  msgBox.scrollTop = msgBox.scrollHeight;
+}
+
+// Қауіп жоқ хабар
+function addSafe(text) {
+  const msg = document.createElement("div");
+  msg.className = "msg safe";
+  msg.textContent = "✅ " + text;
+  msgBox.appendChild(msg);
+  msgBox.scrollTop = msgBox.scrollHeight;
+}
+
+// Жүйелік хабар
+function addSystem(text) {
+  const msg = document.createElement("div");
+  msg.className = "msg system";
+  msg.textContent = "🧾 " + text;
+  msgBox.appendChild(msg);
+  msgBox.scrollTop = msgBox.scrollHeight;
+}
+
+// Радиация тексеру
+function checkRadiation() {
+  const hazard = Math.random() < 0.5;
+  if(hazard) addDanger("РАДИАЦИЯ АУЫТҚУЫ АНЫҚТАЛДЫ!");
+  else addSafe("РАДИАЦИЯ АУЫТҚУЫ анықталған жоқ");
+}
+
+// Салқындату жүйесі тексеру
+function checkCooling() {
+  const hazard = Math.random() < 0.5;
+  if(hazard) addDanger("СУЫТУ ЖҮЙЕСІ БҰЗЫЛДЫ!");
+  else addSafe("СУЫТУ ЖҮЙЕСІ қалыпты жұмыс істеп тұр");
+}
+
+// Өтініштің маңыздылығын анықтау (симуляция)
+function determinePriority(text) {
+  text = text.toLowerCase();
+  if (text.includes("шұғыл") || text.includes("апат")) return "Жоғары";
+  if (text.includes("қызмет") || text.includes("техникалық")) return "Орташа";
+  return "Төмен";
+}
+
+// Жалпы хабар қосу
+function addMsg(text, cls) {
+  const div = document.createElement("div");
+  div.className = "msg " + cls;
+  div.innerText = text;
+  msgBox.appendChild(div);
+  msgBox.scrollTop = msgBox.scrollHeight;
+}
+</script>
+
+</body>
+</html>
+
